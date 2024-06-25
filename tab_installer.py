@@ -2,47 +2,57 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import json
 import threading
-import asyncio
 import subprocess
-import os
-import signal
+import psutil
 
 class ConfigGUI:
     def __init__(self, master):
         self.master = master
         master.title("탭클라우드잇 설치 윈도우")
 
+        # 메인 프레임
         self.main_frame = ttk.Frame(master, padding="10")
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
+        # 설정 항목들을 포함할 노트북 (탭) 생성
         self.notebook = ttk.Notebook(self.main_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
+        # 설정 항목들
         self.create_config_entries()
 
+        # 버튼 프레임
         self.button_frame = ttk.Frame(self.main_frame)
         self.button_frame.pack(pady=10)
 
+        # 저장 버튼
         self.save_button = ttk.Button(self.button_frame, text="설정 저장", command=self.save_config)
         self.save_button.pack(side=tk.LEFT, padx=5)
 
+        # 실행 버튼
         self.run_button = ttk.Button(self.button_frame, text="스크립트 실행", command=self.run_script)
         self.run_button.pack(side=tk.LEFT, padx=5)
 
+        # 중단 버튼
         self.stop_button = ttk.Button(self.button_frame, text="실행 중단", command=self.stop_script, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=5)
 
+        # 로그 출력 영역
         self.log_text = tk.Text(self.main_frame, wrap=tk.WORD, width=60, height=10)
         self.log_text.pack(pady=10)
 
+        # 프로그레스 바
         self.progress = ttk.Progressbar(self.main_frame, orient=tk.HORIZONTAL, length=200, mode='determinate')
         self.progress.pack(pady=10)
 
+        # 로그 저장 버튼
         self.save_log_button = ttk.Button(self.button_frame, text="로그 저장", command=self.save_log)
         self.save_log_button.pack(side=tk.LEFT, padx=5)
 
+        # 스크립트 실행 상태 및 프로세스 추적
         self.script_running = False
         self.script_process = None
+        self.script_stopped = False
 
     def load_config_schema(self):
         try:
@@ -132,63 +142,96 @@ class ConfigGUI:
         self.master.update_idletasks()
 
         self.script_running = True
+        self.script_stopped = False
         self.run_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
 
-        threading.Thread(target=self.execute_script_async, daemon=True).start()
+        threading.Thread(target=self.execute_script, daemon=True).start()
 
-    def execute_script_async(self):
-        asyncio.run(self.execute_script())
-
-    async def execute_script(self):
+    def execute_script(self):
         try:
-            process = await asyncio.create_subprocess_exec(
-                "python", "your_script.py",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+            self.script_process = subprocess.Popen(
+                ["./install_test.sh"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
             )
 
-            while True:
-                line = await process.stdout.readline()
-                if not line:
+            for line in self.script_process.stdout:
+                if not self.script_running:
                     break
-                self.log_text.insert(tk.END, line.decode())
-                self.log_text.see(tk.END)
-                self.master.update_idletasks()
 
-                # Update progress bar (you may need to adjust this based on your script's output)
-                if line.startswith(b'Progress:'):
-                    progress = int(line.split(b':')[1])
-                    self.progress['value'] = progress
-                    self.master.update_idletasks()
+                line = line.strip()
+                self.master.after(0, self.update_gui, line)
 
-            await process.wait()
+            self.script_process.wait()
+
         except Exception as e:
-            self.log_text.insert(tk.END, f"오류 발생: {str(e)}\n")
+            self.master.after(0, self.update_gui, f"오류 발생: {str(e)}")
         finally:
-            self.script_running = False
-            self.run_button.config(state=tk.NORMAL)
-            self.stop_button.config(state=tk.DISABLED)
-            self.script_process = None
+            if self.script_running:
+                self.script_running = False
+                self.master.after(0, self.update_gui_final)
+            elif not self.script_stopped:
+                # 스크립트가 정상적으로 완료된 경우
+                self.master.after(0, self.update_gui, "스크립트 실행이 완료되었습니다.")
+                self.master.after(10, self.update_gui_final)
 
-            if self.progress['value'] == 100:
-                messagebox.showinfo("실행 완료", "스크립트 실행이 완료되었습니다.")
-            else:
-                self.log_text.insert(tk.END, "스크립트 실행이 중단되었습니다.\n")
+    def update_gui(self, line):
+        self.log_text.insert(tk.END, line + "\n")
+        self.log_text.see(tk.END)
+
+        if line.startswith("Progress:"):
+            try:
+                progress = int(line.split(":")[1])
+                self.progress['value'] = progress
+            except (IndexError, ValueError):
+                pass  # 잘못된 형식의 Progress 라인 무시
+
+        self.master.update_idletasks()
+
+    def update_gui_final(self):
+        self.run_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
+
+        if self.progress['value'] == 100 and not self.script_stopped:
+            messagebox.showinfo("실행 완료", "스크립트 실행이 완료되었습니다.")
+        elif self.script_stopped:
+            # 이미 메시지가 로그에 추가되었으므로 여기서는 추가하지 않습니다.
+            pass
+
+        self.script_process = None
+        self.script_stopped = False  # 상태 초기화
 
     def stop_script(self):
-        if not self.script_running:
+        if not self.script_running or not self.script_process:
             return
 
         self.script_running = False
-        if self.script_process:
-            if os.name == 'nt':
-                subprocess.call(['taskkill', '/F', '/T', '/PID', str(self.script_process.pid)])
-            else:
-                os.killpg(os.getpgid(self.script_process.pid), signal.SIGTERM)
+        self.script_stopped = True
 
-        self.log_text.insert(tk.END, "스크립트 실행 중단 요청...\n")
-        self.log_text.see(tk.END)
+        try:
+            parent = psutil.Process(self.script_process.pid)
+            children = parent.children(recursive=True)
+
+            for child in children:
+                child.terminate()
+
+            parent.terminate()
+
+            gone, still_alive = psutil.wait_procs(children + [parent], timeout=3)
+
+            for p in still_alive:
+                p.kill()
+
+        except psutil.NoSuchProcess:
+            pass
+
+        # GUI 업데이트를 위해 update_gui 메서드 직접 호출
+        self.master.after(0, self.update_gui, "스크립트 실행이 중단되었습니다.")
+        self.master.after(10, self.update_gui_final)
 
 if __name__ == "__main__":
     root = tk.Tk()
