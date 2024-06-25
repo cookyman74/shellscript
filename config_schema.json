@@ -1,0 +1,46 @@
+[
+  [
+    "일반 설정",
+    [
+      ["nodes_ssh_port", "SSH 포트", "22", false],
+      ["nodes_ssh_user", "SSH 사용자", "openstack", false],
+      ["nodes_ssh_password", "SSH 비밀번호", "qwe1212!Q", false],
+      ["enable_upgrade_process", "업그레이드 프로세스 활성화", "false", true],
+      ["data_mount_directory", "데이터 마운트 디렉토리", "/data", false],
+      ["create_data_directory_if_not_mounted", "마운트되지 않은 경우 데이터 디렉토리 생성", "false", true],
+      ["enable_ssl", "SSL 활성화", "true", true]
+    ]
+  ],
+  [
+    "서버 설정",
+    [
+      ["mariadb_install_target_ip_address", "MariaDB 설치 대상 IP 주소", "192.168.122.102", false],
+      ["was_server_ip_address", "WAS 서버 IP 주소", "192.168.122.101", false],
+      ["key_store_password", "키 스토어 비밀번호", "qwe1212!Q", false],
+      ["netbox_install_target_ip_address", "NetBox 설치 대상 IP 주소", "192.168.122.101", false],
+      ["rabbitmq_install_target_ip_address", "RabbitMQ 설치 대상 IP 주소", "192.168.122.101", false],
+      ["batch_server_ip_address", "Batch 서버 IP 주소", "192.168.122.103", false],
+      ["influxdb_install_target_ip_address", "InfluxDB 설치 대상 IP 주소", "192.168.122.103", false]
+    ]
+  ],
+  [
+    "TabCloudit 설정",
+    [
+      ["tabcloudit_enable_openstack", "OpenStack 활성화", "true", true],
+      ["tabcloudit_enable_vmware", "VMware 활성화", "false", true],
+      ["tabcloudit_enable_openshift", "OpenShift 활성화", "true", true],
+      ["openstack_api_ip_address", "OpenStack API IP 주소", "192.168.130.130", false],
+      ["minio_ip_address", "MinIO IP 주소", "210.207.104.213", false],
+      ["kapacitor_ip_address", "Kapacitor IP 주소", "192.168.130.8", false],
+      ["sms_ip_address", "SMS IP 주소", "10.232.181.152", false]
+    ]
+  ],
+  [
+    "OpenShift 설정",
+    [
+      ["openshift_domain", "OpenShift 도메인", "ocp4.inno.com", false],
+      ["openshift_master_ip_address", "OpenShift 마스터 IP 주소", "192.168.150.246", false],
+      ["openshift_worker_ip_address", "OpenShift 워커 IP 주소", "192.168.150.246", false]
+    ]
+  ]
+]
